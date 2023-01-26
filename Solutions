@@ -1,0 +1,119 @@
+import pandas as pd 
+from sqlalchemy import create_engine
+import more_itertools
+from sqlalchemy import text
+import numpy as np
+#!pip install more-itertools
+
+engine = create_engine('postgresql://root:root@localhost:5432/ny_taxi')
+def executeSQL(qry):
+    result = engine.execute(qry)
+    for i in result:
+        print(i)
+ 
+
+def eSQL(qry):
+    output = []
+    result = engine.execute(qry)
+    for i in result:
+        output.append(i)
+    df = pd.DataFrame(np.array(output))
+    print(df)
+    
+
+df_location = pd.read_csv('taxi+_zone_lookup.csv')
+df_green = pd.read_csv('green_tripdata_2019-01.csv', iterator=True, chunksize=200000)
+number_of_t = more_itertools.ilen(df_green)
+df = pd.read_csv('green_tripdata_2019-01.csv')
+df.lpep_pickup_datetime = pd.to_datetime(df.lpep_pickup_datetime)
+df.lpep_dropoff_datetime = pd.to_datetime(df.lpep_dropoff_datetime)
+df.head()
+df_location.head()
+from time import time
+number_of_t
+df_green_iter = pd.read_csv('green_tripdata_2019-01.csv', iterator=True, chunksize=200000)
+for n in range(number_of_t):
+    print(f"{n} batch" )
+    t_start = time()
+    df = next(df_green_iter)
+    df.lpep_pickup_datetime = pd.to_datetime(df.lpep_pickup_datetime)
+    df.lpep_dropoff_datetime = pd.to_datetime(df.lpep_dropoff_datetime)
+    df.to_sql(name='green_taxi_data', con=engine, if_exists='append')
+    t_end = time()
+    print('inserted another chunk, took %.3f second' % (t_end - t_start))
+    
+# while True:
+#     t_start = time()
+#     df = next(df_green)
+#     df.lpep_pickup_datetime = pd.to_datetime(df.lpep_pickup_datetime)
+#     df.lpep_dropoff_datetime = pd.to_datetime(df.lpep_dropoff_datetime)
+#     df.to_sql(name='green_taxi_data', con=engine, if_exists='append')
+#     t_end = time()
+#     print('inserted another chunk, took %.3f second' % (t_end - t_start))
+    
+    
+df_location.to_sql('location_data', engine)
+
+# ## Question 3. Count records 
+
+# How many taxi trips were totally made on January 15?
+
+
+executeSQL('''    
+SELECT COUNT(*) FROM (SELECT  * FROM green_taxi_data
+WHERE  lpep_pickup_datetime::DATE = '2019-01-15' AND lpep_pickup_datetime::DATE  = lpep_dropoff_datetime::DATE)
+AS countDATA
+''')
+
+
+# ## Question 4. Largest trip for each day
+
+# Which was the day with the largest trip distance
+
+
+executeSQL('''
+
+SELECT lpep_pickup_datetime::DATE  , "trip_distance" FROM green_taxi_data
+ORDER BY "trip_distance"  DESC LIMIT 1
+
+''')
+
+## Question 5. The number of passengers
+
+executeSQL('''  SELECT  COUNT(*) FROM green_taxi_data
+WHERE passenger_count = 3 AND lpep_pickup_datetime::DATE = '2019-01-01'
+''')
+
+
+executeSQL(''' SELECT  COUNT(*) FROM green_taxi_data
+WHERE passenger_count = 2 AND lpep_pickup_datetime::DATE = '2019-01-01'
+''')
+# ## Question 6. Largest tip
+
+# For the passengers picked up in the Astoria Zone which was the drop off zone that had the largest tip?
+# We want the name of the zone, not the id.
+
+# Note: it's not a typo, it's `tip` , not `trip`
+
+
+
+SELECT COUNT(*) FROM (SELECT  * FROM green_taxi_data
+WHERE  lpep_pickup_datetime::DATE = '2019-01-15' AND lpep_pickup_datetime::DATE  = lpep_dropoff_datetime::DATE)
+AS countDATA
+
+SELECT  COUNT(*) FROM green_taxi_data
+WHERE passenger_count = 3 AND lpep_pickup_datetime::DATE = '2019-01-01'
+
+SELECT  COUNT(*) FROM green_taxi_data
+WHERE passenger_count = 2 AND lpep_pickup_datetime::DATE = '2019-01-01'
+
+SELECT "LocationID", "DOLocationID" ,"PULocationID", "Zone", "tip_amount" FROM green_taxi_data
+INNER JOIN location_data ON green_taxi_data."PULocationID" = location_data."LocationID"
+WHERE "Zone" = 'Astoria' ORDER BY tip_amount DESC
+
+SELECT * FROM location_data
+WHERE "LocationID" = 146
+
+SELECT lpep_pickup_datetime::DATE  , "trip_distance" FROM green_taxi_data
+ORDER BY "trip_distance"  DESC LIMIT 1
+
